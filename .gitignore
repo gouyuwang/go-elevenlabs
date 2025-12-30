@@ -1,0 +1,28 @@
+# IDE
+.idea/
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.prof
+*.out
+coverage.out
+coverage.html
+
+# Logs
+*.log
+!examples/simple/test.pcm
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
