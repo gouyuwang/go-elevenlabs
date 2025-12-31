@@ -12,6 +12,7 @@ type Recognizer struct {
 	ctx      context.Context
 	conn     *Conn
 	handlers []ServerEventHandler
+	errCh    chan error
 }
 
 // NewRecognizer creates a new Recognizer.
@@ -20,10 +21,45 @@ func NewRecognizer(ctx context.Context, conn *Conn, handlers ...ServerEventHandl
 		ctx:      ctx,
 		conn:     conn,
 		handlers: handlers,
+		errCh:    make(chan error, 1),
 	}
 }
 
-// run runs the recognizer.
+// Err returns a channel that receives errors from the ConnHandler.
+// This could be used to wait for the goroutine to exit.
+// If you don't need to wait for the goroutine to exit, there's no need to call this.
+// This must be called after the connection is closed, otherwise it will block indefinitely.
+func (r *Recognizer) Err() <-chan error {
+	return r.errCh
+}
+
+// Start the recognizer.
+func (r *Recognizer) Start() {
+	go func() {
+		err := r.run()
+		if err != nil {
+			r.errCh <- err
+		}
+		close(r.errCh)
+	}()
+}
+
+func (r *Recognizer) Send(pcm []byte) error {
+	return r.conn.SendMessage(r.ctx, InputAudioChunkEvent{
+		Audio: base64.StdEncoding.EncodeToString(pcm),
+	})
+}
+
+func (r *Recognizer) Commit() error {
+	return r.conn.SendMessage(r.ctx, InputAudioChunkEvent{
+		Commit: true,
+	})
+}
+
+func (r *Recognizer) Stop() error {
+	return r.conn.Close()
+}
+
 func (r *Recognizer) run() error {
 	defer r.conn.logger.Debugf("conn handler exited")
 	for {
@@ -46,42 +82,4 @@ func (r *Recognizer) run() error {
 			handler(r.ctx, msg)
 		}
 	}
-}
-
-func (r *Recognizer) Send(pcm []byte) error {
-	return r.conn.SendMessage(r.ctx, InputAudioChunkEvent{
-		Audio: base64.StdEncoding.EncodeToString(pcm),
-	})
-}
-
-func (r *Recognizer) Commit() error {
-	return r.conn.SendMessage(r.ctx, InputAudioChunkEvent{
-		Commit: true,
-	})
-}
-
-// StartContinuousRecognitionAsync asynchronously initiates continuous speech recognition operation.
-func (r *Recognizer) StartContinuousRecognitionAsync() chan error {
-	outcome := make(chan error)
-	go func() {
-		outcome <- nil
-		if err := r.run(); err != nil {
-			outcome <- err
-			return
-		}
-	}()
-	return outcome
-}
-
-// StopContinuousRecognitionAsync asynchronously terminates ongoing continuous speech recognition operation.
-func (r *Recognizer) StopContinuousRecognitionAsync() chan error {
-	outcome := make(chan error)
-	go func() {
-		if err := r.conn.Close(); err != nil {
-			outcome <- err
-			return
-		}
-		outcome <- nil
-	}()
-	return outcome
 }

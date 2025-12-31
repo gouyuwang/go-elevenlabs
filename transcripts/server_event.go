@@ -25,6 +25,7 @@ const (
 	ServerEventChunkSizeExceededError            ServerEventType = "chunk_size_exceeded"
 	ServerEventInsufficientAudioActivityError    ServerEventType = "insufficient_audio_activity"
 	ServerEventTranscriberError                  ServerEventType = "transcriber_error"
+	ServerEventInvalidRequestError               ServerEventType = "invalid_request"
 )
 
 // ServerEvent is the interface for server event.
@@ -71,7 +72,8 @@ func UnmarshalServerEvent(data []byte) (ServerEvent, error) {
 		ServerEventInputError,
 		ServerEventChunkSizeExceededError,
 		ServerEventInsufficientAudioActivityError,
-		ServerEventTranscriberError:
+		ServerEventTranscriberError,
+		ServerEventInvalidRequestError:
 		return unmarshalServerEvent[SpeechRecognitionCanceledEventArgs](data)
 
 	default:

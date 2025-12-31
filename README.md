@@ -52,43 +52,34 @@ func main() {
 
     fmt.Printf("connecting: %+v\n", conn)
     
-    recognizer := transcripts.NewRecognizer(ctx, conn,
-        func(ctx context.Context, event transcripts.ServerEvent) {
-            switch e := event.(type) {
-            case transcripts.SessionStartEventArgs:
-                fmt.Printf("session start: %+v\n", e)
-            case transcripts.SpeechRecognizingEventArgs:
-                fmt.Printf("speech recognizing: %+v\n", e)
-            case transcripts.SpeechRecognizedEventArgs:
-                fmt.Printf("speech recognized: %+v\n", e)
-            case transcripts.SpeechRecognizedWithTimestampEventArgs:
-                fmt.Printf("speech recognized with timestamp: %+v\n", e)
-            case transcripts.SpeechRecognitionCanceledEventArgs:
-                fmt.Printf("speech recognition canceled: %+v\n", e)
+    recognizer := transcripts.NewRecognizer(ctx, conn)
+    
+    // Add event handlers
+    recognizer.Start() // Start the recognizer in a goroutine
+    
+    // Add event handlers after starting
+    go func() {
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            default:
+                // Handle events in a separate goroutine if needed
             }
-        })
-
-    fmt.Printf("start continuous recognition...\n")
-    if outcome := <-recognizer.StartContinuousRecognitionAsync(); outcome != nil {
-        fmt.Printf("connect error: %+v\n", outcome)
-        return
-    }
-    defer func() {
-        if outcome := <-recognizer.StopContinuousRecognitionAsync(); outcome != nil {
-            fmt.Printf("stop continuous recognition error: %+v\n", outcome)
-        } else {
-            fmt.Println("stop continuous recognition done.")
         }
     }()
 
     // Send audio data (PCM format, 16kHz sample rate)
     // Example: recognizer.Send(audioData)
+    
+    // Wait for completion or error
+    if err := <-recognizer.Err(); err != nil {
+        fmt.Printf("recognizer error: %v\n", err)
+    }
 }
 ```
 
 ### Streaming PCM Audio
-
-The SDK includes utilities for streaming PCM audio data:
 
 ```go
 func StreamPCMWithChannel(ctx context.Context, recognizer *transcripts.Recognizer, pcmFile string, chunkSize int, interval time.Duration) error {
@@ -158,13 +149,24 @@ client.Connect(ctx, transcripts.WithQuery(map[string]string{
 
 ## Event Types
 
-The SDK supports several event types:
+The SDK supports several event types that can be handled in your event handler:
 
 - `SessionStartEventArgs`: Fired when the session starts
 - `SpeechRecognizingEventArgs`: Fired for partial transcripts
 - `SpeechRecognizedEventArgs`: Fired for committed transcripts
 - `SpeechRecognizedWithTimestampEventArgs`: Fired for transcripts with word-level timestamps
 - `SpeechRecognitionCanceledEventArgs`: Fired when recognition is canceled (with error details)
+
+## API Methods
+
+- `NewClient(authKey string) *Client`: Creates a new client with the provided auth key
+- `Client.Connect()`: Establishes a connection to the API
+- `NewRecognizer(ctx context.Context, conn *Conn, handlers ...ServerEventHandler) *Recognizer`: Creates a new recognizer
+- `recognizer.Start()`: Starts the recognizer to listen for events
+- `recognizer.Send(pcm []byte) error`: Sends PCM audio data to the API
+- `recognizer.Commit() error`: Commits the current audio for processing
+- `recognizer.Stop() error`: Stops the recognizer and closes the connection
+- `recognizer.Err() <-chan error`: Returns a channel for receiving errors
 
 ## Error Handling
 

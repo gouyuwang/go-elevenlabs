@@ -4,75 +4,88 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"time"
 
 	"github.com/gouyuwang/go-elevenlabs/transcripts"
 )
 
+func init() {
+	log.SetFlags(log.LstdFlags)
+}
 func main() {
-	authToken := "Your key"
-	client := transcripts.NewClient(authToken)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	logger := transcripts.StdLogger{}
+	authKey := "Your key"
+	client := transcripts.NewClient(authKey)
 	conn, err := client.Connect(ctx, transcripts.WithQuery(map[string]string{
-		"language_code": "eng",
-	}))
+		"language_code": "eng", //iso 639-1 or iso 639-3
+	}), transcripts.WithLogger(logger))
 	if err != nil {
-		fmt.Println("connect error:", err)
+		logger.Errorf("connect error: %+v\n", err)
 		return
 	}
+	logger.Debugf("connected.\n")
 
-	fmt.Printf("connecting: %+v\n", conn)
 	recognizer := transcripts.NewRecognizer(ctx, conn,
 		func(ctx context.Context, event transcripts.ServerEvent) {
 			switch e := event.(type) {
 			case transcripts.SessionStartEventArgs:
-				fmt.Printf("session start: %+v\n", e)
+				logger.Debugf("session start: %+v\n", e)
 			case transcripts.SpeechRecognizingEventArgs:
-				fmt.Printf("speech recognizing: %+v\n", e)
+				logger.Debugf("speech recognizing: %+v\n", e)
 			case transcripts.SpeechRecognizedEventArgs:
-				fmt.Printf("speech recognized: %+v\n", e)
+				logger.Debugf("speech recognized: %+v\n", e)
 			case transcripts.SpeechRecognizedWithTimestampEventArgs:
-				fmt.Printf("speech recognized with timestamp: %+v\n", e)
+				logger.Debugf("speech recognized with timestamp: %+v\n", e)
 			case transcripts.SpeechRecognitionCanceledEventArgs:
-				fmt.Printf("speech recognition canceled: %+v\n", e)
+				logger.Debugf("speech recognition canceled: %+v\n", e)
 			}
 		})
 
-	fmt.Printf("start continuous recognition...\n")
-	if outcome := <-recognizer.StartContinuousRecognitionAsync(); outcome != nil {
-		fmt.Printf("connect error: %+v\n", outcome)
-		return
-	}
+	recognizer.Start()
 	defer func() {
-		if outcome := <-recognizer.StopContinuousRecognitionAsync(); outcome != nil {
-			fmt.Printf("stop continuous recognition error: %+v\n", outcome)
-		} else {
-			fmt.Println("stop continuous recognition done.")
+		if err = recognizer.Stop(); err != nil {
+			logger.Errorf("stop continuous recognition error: %+v\n", err)
+			return
 		}
+		logger.Debugf("stop continuous recognition done.\n")
 	}()
 
-	fmt.Printf("Mock send pcm stream...\n")
+	logger.Debugf("Mock send pcm stream...\n")
 	interval := 300 * time.Millisecond
 	chunkSize := int(16000 * 2 * interval.Seconds())
 	if err = StreamPCMWithChannel(ctx, recognizer, "./examples/simple/nicole.pcm", chunkSize, interval); err != nil {
-		fmt.Printf("stream PCM error: %+v\n", err)
-	} else {
-		fmt.Printf("send data done...\n")
+		logger.Errorf("stream PCM error: %+v\n", err)
+		return
+	}
+	logger.Debugf("send data done...\n")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case err = <-recognizer.Err():
+			logger.Errorf("conn handler error: %+v\n", err)
+			return
+		case <-time.After(20 * time.Second):
+			return
+		}
 	}
 }
 
 func StreamPCMWithChannel(ctx context.Context, recognizer *transcripts.Recognizer, pcmFile string, chunkSize int, interval time.Duration) error {
 	file, err := os.Open(pcmFile)
 	if err != nil {
-		return fmt.Errorf("failed to open PCM file: %w", err)
+		return err
 	}
-	defer func(file *os.File) {
+	defer func() {
 		if err = file.Close(); err != nil {
-			fmt.Printf("close file error: %+v\n", err)
+			log.Printf("close file error: %+v\n", err)
 		}
-	}(file)
+	}()
 
 	buffer := make([]byte, chunkSize)
 	ticker := time.NewTicker(interval)
@@ -88,18 +101,17 @@ func StreamPCMWithChannel(ctx context.Context, recognizer *transcripts.Recognize
 				if sendErr := recognizer.Send(buffer[:n]); sendErr != nil {
 					return fmt.Errorf("failed to send audio chunk: %w", sendErr)
 				}
-				fmt.Printf("Sent %d bytes\n", n)
+				log.Printf("Sent %d bytes\n", n)
 			}
 
-			if err == io.EOF {
-				if sendErr := recognizer.Commit(); sendErr != nil {
-					return fmt.Errorf("failed to commit audio: %w", sendErr)
+			if err != nil {
+				if err == io.EOF {
+					if sendErr := recognizer.Commit(); sendErr != nil {
+						return fmt.Errorf("failed to commit audio: %w", sendErr)
+					}
+					log.Println("Finished sending PCM data")
+					return nil
 				}
-				fmt.Println("Finished sending PCM data")
-				return nil
-			}
-
-			if err != nil && err != io.EOF {
 				return fmt.Errorf("error reading PCM file: %w", err)
 			}
 		}

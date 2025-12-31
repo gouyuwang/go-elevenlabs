@@ -7,13 +7,13 @@ const (
 
 // ClientConfig is the configuration for the client.
 type ClientConfig struct {
-	authToken string
-	BaseURL   string // Base URL for the API.
+	authKey string
+	BaseURL string // Base URL for the API.
 }
 
-func DefaultConfig(authToken string) ClientConfig {
+func DefaultConfig(authKey string) ClientConfig {
 	return ClientConfig{
-		authToken: authToken,
-		BaseURL:   BaseUrl,
+		authKey: authKey,
+		BaseURL: BaseUrl,
 	}
 }

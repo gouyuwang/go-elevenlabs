@@ -16,9 +16,9 @@ type Client struct {
 }
 
 // NewClient creates new OpenAI Realtime API client for specified auth token.
-func NewClient(authToken string) *Client {
+func NewClient(authKey string) *Client {
 	return &Client{
-		config: DefaultConfig(authToken),
+		config: DefaultConfig(authKey),
 	}
 }
 
@@ -43,7 +43,7 @@ func (c *Client) getURL(queries map[string]string) string {
 
 func (c *Client) getHeaders() http.Header {
 	headers := http.Header{}
-	headers.Set("xi-api-key", c.config.authToken)
+	headers.Set("xi-api-key", c.config.authKey)
 	return headers
 }
 
@@ -55,6 +55,62 @@ type connectOption struct {
 type ConnectOption func(*connectOption)
 
 // WithQuery sets the query parameters for the connection.
+// Required Parameters
+//
+// model_id (string)
+// The ID of the model to be used for transcription. This parameter is required.
+// Notice: the only supported model is scribe_v2_realtime at the moment
+//
+// # Optional Parameters
+//
+// token (string)
+// The authorization bearer token for authentication, typically an API key.
+//
+// include_timestamps (boolean)
+// Default: false
+// Whether to include word-level timestamps in the final transcription. If set to true, the transcription will include timestamps.
+//
+// include_language_detection (boolean)
+// Default: false
+// Whether to include the detected language code in the transcription. If set to true, the API will return the detected language code.
+//
+// audio_format (enum)
+// Default: pcm_16000
+// The audio encoding format used for speech-to-text. This parameter can support multiple values, but they are not listed here.
+// Allowed values: pcm_8000  pcm_16000  pcm_22050 pcm_24000 pcm_44100 pcm_48000 ulaw_8000
+//
+// language_code (string)
+// Default: None
+// The language code of the audio content, in ISO 639-1 or ISO 639-3 format. For example, en for English, fr for French.
+//
+// commit_strategy (enum)
+// Default: manual
+// Defines the strategy for committing transcriptions.
+// Allowed values: manual vad
+//
+// manual: Manual submission of the transcription.
+//
+// vad: Automatically commits transcription using Voice Activity Detection (VAD).
+//
+// vad_silence_threshold_secs (double)
+// Default: 1.5
+// Sets the silence threshold in seconds for Voice Activity Detection (VAD). Silence lasting longer than this duration will be considered as a pause.
+//
+// vad_threshold (double)
+// Default: 0.4
+// Sets the threshold for VAD to determine when speech activity starts or stops.
+//
+// min_speech_duration_ms (integer)
+// Default: 250 milliseconds
+// The minimum speech duration (in milliseconds) required to be considered valid. Speech shorter than this duration will be ignored.
+//
+// min_silence_duration_ms (integer)
+// Default: 2500 milliseconds
+// The minimum silence duration (in milliseconds) that VAD will recognize as a pause.
+//
+// enable_logging (boolean)
+// Default: true
+// Whether to enable logging. If set to false, the "zero retention mode" will be enabled, meaning the request history will not be stored. This mode is typically available only for enterprise customers.
 func WithQuery(query map[string]string) ConnectOption {
 	return func(opts *connectOption) {
 		if nil == opts.queries {
