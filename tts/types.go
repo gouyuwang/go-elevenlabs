@@ -9,8 +9,32 @@ import (
 type AudioFormat string
 
 const (
-	AudioFormatMP344100128 AudioFormat = "mp3_44100_128"
-	AudioFormatPCM44100    AudioFormat = "pcm_44100"
+	AudioFormatMP32205032   AudioFormat = "mp3_22050_32"
+	AudioFormatMP34410032   AudioFormat = "mp3_44100_32"
+	AudioFormatMP34410064   AudioFormat = "mp3_44100_64"
+	AudioFormatMP34410096   AudioFormat = "mp3_44100_96"
+	AudioFormatMP344100128  AudioFormat = "mp3_44100_128"
+	AudioFormatMP344100192  AudioFormat = "mp3_44100_192"
+	AudioFormatPCM8000      AudioFormat = "pcm_8000"
+	AudioFormatPCM16000     AudioFormat = "pcm_16000"
+	AudioFormatPCM22050     AudioFormat = "pcm_22050"
+	AudioFormatPCM24000     AudioFormat = "pcm_24000"
+	AudioFormatPCM44100     AudioFormat = "pcm_44100"
+	AudioFormatULAW8000     AudioFormat = "ulaw_8000"
+	AudioFormatALAW8000     AudioFormat = "alaw_8000"
+	AudioFormatOpus4800032  AudioFormat = "opus_48000_32"
+	AudioFormatOpus4800064  AudioFormat = "opus_48000_64"
+	AudioFormatOpus4800096  AudioFormat = "opus_48000_96"
+	AudioFormatOpus48000128 AudioFormat = "opus_48000_128"
+	AudioFormatOpus48000192 AudioFormat = "opus_48000_192"
+)
+
+type TextNormalizationMode string
+
+const (
+	TextNormalizationAuto TextNormalizationMode = "auto"
+	TextNormalizationOn   TextNormalizationMode = "on"
+	TextNormalizationOff  TextNormalizationMode = "off"
 )
 
 const (

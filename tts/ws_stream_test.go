@@ -34,6 +34,24 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 		if got, want := r.URL.Query().Get("output_format"), "mp3_44100_128"; got != want {
 			t.Fatalf("output_format = %s, want %s", got, want)
 		}
+		if got, want := r.URL.Query().Get("enable_ssml_parsing"), "true"; got != want {
+			t.Fatalf("enable_ssml_parsing = %s, want %s", got, want)
+		}
+		if got, want := r.URL.Query().Get("inactivity_timeout"), "45"; got != want {
+			t.Fatalf("inactivity_timeout = %s, want %s", got, want)
+		}
+		if got, want := r.URL.Query().Get("sync_alignment"), "true"; got != want {
+			t.Fatalf("sync_alignment = %s, want %s", got, want)
+		}
+		if got, want := r.URL.Query().Get("auto_mode"), "true"; got != want {
+			t.Fatalf("auto_mode = %s, want %s", got, want)
+		}
+		if got, want := r.URL.Query().Get("apply_text_normalization"), "on"; got != want {
+			t.Fatalf("apply_text_normalization = %s, want %s", got, want)
+		}
+		if got, want := r.URL.Query().Get("seed"), "7"; got != want {
+			t.Fatalf("seed = %s, want %s", got, want)
+		}
 
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
@@ -70,10 +88,21 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 	client := NewClientWithConfig(cfg)
 
 	stability := 0.3
+	enableSSMLParsing := true
+	inactivityTimeout := 45
+	syncAlignment := true
+	autoMode := true
+	seed := 7
 	conn, err := client.ConnectRealtime(context.Background(), StreamInputRequest{
-		VoiceID:      "voice_123",
-		ModelID:      ModelElevenTurboV25,
-		OutputFormat: AudioFormatMP344100128,
+		VoiceID:                "voice_123",
+		ModelID:                ModelElevenTurboV25,
+		OutputFormat:           AudioFormatMP344100128,
+		EnableSSMLParsing:      &enableSSMLParsing,
+		InactivityTimeout:      &inactivityTimeout,
+		SyncAlignment:          &syncAlignment,
+		AutoMode:               &autoMode,
+		ApplyTextNormalization: TextNormalizationOn,
+		Seed:                   &seed,
 		VoiceSettings: &VoiceSettings{
 			Stability: &stability,
 		},
@@ -134,6 +163,35 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 	}
 	if !finalEvent.IsFinal {
 		t.Fatal("final event should be final")
+	}
+}
+
+func TestAudioFormatConstantsCoverDocumentedValues(t *testing.T) {
+	t.Parallel()
+
+	formats := []AudioFormat{
+		AudioFormatMP32205032,
+		AudioFormatMP34410032,
+		AudioFormatMP34410064,
+		AudioFormatMP34410096,
+		AudioFormatMP344100128,
+		AudioFormatMP344100192,
+		AudioFormatPCM8000,
+		AudioFormatPCM16000,
+		AudioFormatPCM22050,
+		AudioFormatPCM24000,
+		AudioFormatPCM44100,
+		AudioFormatULAW8000,
+		AudioFormatALAW8000,
+		AudioFormatOpus4800032,
+		AudioFormatOpus4800064,
+		AudioFormatOpus4800096,
+		AudioFormatOpus48000128,
+		AudioFormatOpus48000192,
+	}
+
+	if got, want := len(formats), 18; got != want {
+		t.Fatalf("len(formats) = %d, want %d", got, want)
 	}
 }
 

@@ -22,6 +22,12 @@ type StreamInputRequest struct {
 	VoiceSettings            *VoiceSettings
 	EnableLogging            *bool
 	OptimizeStreamingLatency *int
+	EnableSSMLParsing        *bool
+	InactivityTimeout        *int
+	SyncAlignment            *bool
+	AutoMode                 *bool
+	ApplyTextNormalization   TextNormalizationMode
+	Seed                     *int
 }
 
 type StreamTextMessage struct {
@@ -147,6 +153,24 @@ func (c *Client) streamInputURL(req StreamInputRequest) (string, error) {
 	}
 	if req.OptimizeStreamingLatency != nil {
 		query.Set("optimize_streaming_latency", strconvFormatInt(*req.OptimizeStreamingLatency))
+	}
+	if req.EnableSSMLParsing != nil {
+		query.Set("enable_ssml_parsing", strconvFormatBool(*req.EnableSSMLParsing))
+	}
+	if req.InactivityTimeout != nil {
+		query.Set("inactivity_timeout", strconvFormatInt(*req.InactivityTimeout))
+	}
+	if req.SyncAlignment != nil {
+		query.Set("sync_alignment", strconvFormatBool(*req.SyncAlignment))
+	}
+	if req.AutoMode != nil {
+		query.Set("auto_mode", strconvFormatBool(*req.AutoMode))
+	}
+	if req.ApplyTextNormalization != "" {
+		query.Set("apply_text_normalization", string(req.ApplyTextNormalization))
+	}
+	if req.Seed != nil {
+		query.Set("seed", strconvFormatInt(*req.Seed))
 	}
 	u.RawQuery = query.Encode()
 	return u.String(), nil

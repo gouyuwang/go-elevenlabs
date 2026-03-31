@@ -4,17 +4,22 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 )
 
 func acceptHeader(format AudioFormat) string {
 	if format == "" {
 		return "audio/mpeg"
 	}
-	switch format {
-	case AudioFormatMP344100128:
+	switch {
+	case strings.HasPrefix(string(format), "mp3_"):
 		return "audio/mpeg"
-	case AudioFormatPCM44100:
+	case strings.HasPrefix(string(format), "pcm_"):
 		return "audio/pcm"
+	case strings.HasPrefix(string(format), "ulaw_"), strings.HasPrefix(string(format), "alaw_"):
+		return "audio/basic"
+	case strings.HasPrefix(string(format), "opus_"):
+		return "audio/ogg"
 	default:
 		return "application/octet-stream"
 	}
