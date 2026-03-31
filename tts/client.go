@@ -56,7 +56,9 @@ func (c *Client) Synthesize(ctx context.Context, req SynthesisRequest) (*Synthes
 	}, nil
 }
 
-func (c *Client) Stream(ctx context.Context, req SynthesisRequest) (*StreamResponse, error) {
+// StreamAudio sends the full text once over HTTP and reads the audio response as a stream.
+// This is HTTP audio streaming, not interactive realtime text-input streaming.
+func (c *Client) StreamAudio(ctx context.Context, req SynthesisRequest) (*StreamResponse, error) {
 	httpReq, err := c.newRequest(ctx, http.MethodPost, c.streamURL(req.VoiceID), req)
 	if err != nil {
 		return nil, err

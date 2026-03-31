@@ -5,7 +5,7 @@ A Go client library for ElevenLabs speech APIs with:
 - ASR realtime streaming over WebSocket
 - ASR file transcription over HTTP
 - TTS synchronous synthesis over HTTP
-- TTS streaming audio output over HTTP
+- TTS HTTP audio streaming
 
 ## Installation
 
@@ -20,7 +20,8 @@ go get github.com/gouyuwang/go-elevenlabs
   - file or source URL transcription with `Client.Transcribe(...)`
 - `github.com/gouyuwang/go-elevenlabs/tts`
   - full audio synthesis with `Client.Synthesize(...)`
-  - streamed audio output with `Client.Stream(...)`
+  - HTTP audio response streaming with `Client.StreamAudio(...)`
+  - websocket realtime TTS with `Client.ConnectRealtime(...)` + `NewRealtimeSynthesizer(...)`
   - model discovery with `Client.ListModels(...)`
 
 ## Authentication
@@ -197,7 +198,56 @@ func main() {
 }
 ```
 
-## TTS Streaming Audio Output
+## TTS WebSocket Realtime Streaming
+
+This mode is closer to the Azure push-style synthesizer: connect once, send incremental text chunks, and handle audio chunks as realtime events.
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/gouyuwang/go-elevenlabs/tts"
+)
+
+func main() {
+	client := tts.NewClient(os.Getenv("ELEVENLABS_API_KEY"))
+	conn, err := client.ConnectRealtime(context.Background(), tts.StreamInputRequest{
+		VoiceID:      "voice_id",
+		ModelID:      tts.ModelElevenTurboV25,
+		OutputFormat: tts.AudioFormatMP344100128,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	streamer := tts.NewRealtimeSynthesizer(context.Background(), conn, func(_ context.Context, event tts.StreamEvent) {
+		switch e := event.(type) {
+		case tts.AudioEvent:
+			log.Printf("audio chunk: %d bytes", len(e.Audio))
+		case tts.DoneEvent:
+			log.Printf("done: %v", e.IsFinal)
+		case tts.ErrorEvent:
+			log.Printf("server error: %s", e.Message)
+		}
+	})
+	streamer.Start()
+
+	_ = streamer.SendText("Hello from websocket streaming.")
+}
+```
+
+See `examples/tts_ws_stream/main.go`.
+
+For backward compatibility, `Client.ConnectStreamInput(...)` and `NewStreamer(...)` still exist as aliases, but new code should prefer `ConnectRealtime(...)` and `NewRealtimeSynthesizer(...)`.
+
+## TTS HTTP Audio Streaming
+
+This mode sends the full text once and reads the audio response as a chunked HTTP stream. It is HTTP audio streaming, not websocket realtime text-input streaming.
 
 ```go
 package main
@@ -212,7 +262,7 @@ import (
 
 func main() {
 	client := tts.NewClient(os.Getenv("ELEVENLABS_API_KEY"))
-	resp, err := client.Stream(context.Background(), tts.SynthesisRequest{
+	resp, err := client.StreamAudio(context.Background(), tts.SynthesisRequest{
 		VoiceID: "voice_id",
 		Text:    "This response is streamed as audio.",
 	})
@@ -260,3 +310,4 @@ See `examples/tts_stream/main.go`.
 - `examples/transcribe_file/main.go`
 - `examples/tts_basic/main.go`
 - `examples/tts_stream/main.go`
+- `examples/tts_ws_stream/main.go`

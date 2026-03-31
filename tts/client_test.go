@@ -123,7 +123,7 @@ func TestClientSynthesizeReturnsAudioAndMetadata(t *testing.T) {
 	}
 }
 
-func TestClientStreamReturnsReadableAudio(t *testing.T) {
+func TestClientStreamAudioReturnsReadableAudio(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,13 +143,13 @@ func TestClientStreamReturnsReadableAudio(t *testing.T) {
 	cfg.BaseURL = server.URL
 	client := NewClientWithConfig(cfg)
 
-	resp, err := client.Stream(context.Background(), SynthesisRequest{
+	resp, err := client.StreamAudio(context.Background(), SynthesisRequest{
 		VoiceID:      "voice_123",
 		Text:         "hello stream",
 		OutputFormat: AudioFormatPCM44100,
 	})
 	if err != nil {
-		t.Fatalf("Stream() error = %v", err)
+		t.Fatalf("StreamAudio() error = %v", err)
 	}
 	defer resp.Audio.Close()
 
@@ -165,7 +165,7 @@ func TestClientStreamReturnsReadableAudio(t *testing.T) {
 	}
 }
 
-func TestClientStreamReturnsAPIError(t *testing.T) {
+func TestClientStreamAudioReturnsAPIError(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -179,12 +179,12 @@ func TestClientStreamReturnsAPIError(t *testing.T) {
 	cfg.BaseURL = server.URL
 	client := NewClientWithConfig(cfg)
 
-	_, err := client.Stream(context.Background(), SynthesisRequest{
+	_, err := client.StreamAudio(context.Background(), SynthesisRequest{
 		VoiceID: "missing",
 		Text:    "hello",
 	})
 	if err == nil {
-		t.Fatal("Stream() error = nil, want non-nil")
+		t.Fatal("StreamAudio() error = nil, want non-nil")
 	}
 
 	apiErr, ok := err.(*APIError)

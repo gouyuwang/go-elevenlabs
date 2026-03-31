@@ -19,7 +19,7 @@ func main() {
 	}
 
 	client := tts.NewClient(authKey)
-	resp, err := client.Stream(context.Background(), tts.SynthesisRequest{
+	resp, err := client.StreamAudio(context.Background(), tts.SynthesisRequest{
 		VoiceID: os.Args[1],
 		Text:    "This audio is streamed from ElevenLabs.",
 	})

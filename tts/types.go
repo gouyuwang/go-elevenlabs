@@ -51,6 +51,8 @@ type SynthesisResponse struct {
 	Headers        http.Header
 }
 
+// StreamResponse is the response for HTTP audio streaming.
+// It represents a single request with full text input and chunked audio output.
 type StreamResponse struct {
 	Audio          io.ReadCloser
 	ContentType    string
