@@ -18,10 +18,18 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	logger := transcripts.StdLogger{}
-	authKey := "Your key"
+	authKey := os.Getenv("ELEVENLABS_API_KEY")
+	if authKey == "" {
+		logger.Errorf("missing ELEVENLABS_API_KEY")
+		return
+	}
 	client := transcripts.NewClient(authKey)
 	conn, err := client.Connect(ctx, transcripts.WithQuery(map[string]string{
-		"language_code": "eng", //iso 639-1 or iso 639-3
+		"language_code":              "eng", //iso 639-1 or iso 639-3
+		"vad_silence_threshold_secs": "1.5",
+		"vad_threshold":              "0.5",
+		"min_speech_duration_ms":     "250",
+		"min_silence_duration_ms":    "2200",
 	}), transcripts.WithLogger(logger))
 	if err != nil {
 		logger.Errorf("connect error: %+v\n", err)

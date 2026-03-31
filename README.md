@@ -1,19 +1,11 @@
 # ElevenLabs Go SDK
 
-A Go client library for ElevenLabs Realtime Speech-to-Text API.
+A Go client library for ElevenLabs speech APIs with:
 
-## Overview
-
-This SDK provides a Go interface to interact with ElevenLabs' real-time speech-to-text service. It allows you to stream audio data and receive real-time transcriptions with support for various audio formats and configuration options.
-
-## Features
-
-- Real-time speech-to-text conversion
-- WebSocket-based streaming
-- Support for PCM audio formats (8kHz to 48kHz)
-- Configurable commit strategies (manual or VAD - Voice Activity Detection)
-- Event-based handling for session start, partial transcripts, and final transcriptions
-- Error handling for various scenarios (quota exceeded, rate limits, etc.)
+- ASR realtime streaming over WebSocket
+- ASR file transcription over HTTP
+- TTS synchronous synthesis over HTTP
+- TTS streaming audio output over HTTP
 
 ## Installation
 
@@ -21,169 +13,250 @@ This SDK provides a Go interface to interact with ElevenLabs' real-time speech-t
 go get github.com/gouyuwang/go-elevenlabs
 ```
 
-## Usage
+## Packages
 
-### Basic Example
+- `github.com/gouyuwang/go-elevenlabs/transcripts`
+  - realtime ASR with `Client.Connect(...)` and `Recognizer`
+  - file or source URL transcription with `Client.Transcribe(...)`
+- `github.com/gouyuwang/go-elevenlabs/tts`
+  - full audio synthesis with `Client.Synthesize(...)`
+  - streamed audio output with `Client.Stream(...)`
+  - model discovery with `Client.ListModels(...)`
+
+## Authentication
+
+Set your API key with the `ELEVENLABS_API_KEY` environment variable:
+
+```bash
+export ELEVENLABS_API_KEY=your_api_key
+```
+
+On PowerShell:
+
+```powershell
+$env:ELEVENLABS_API_KEY="your_api_key"
+```
+
+## ASR Realtime Streaming
 
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
-    "time"
-    "github.com/gouyuwang/go-elevenlabs/transcripts"
+	"context"
+	"log"
+	"time"
+
+	"github.com/gouyuwang/go-elevenlabs/transcripts"
 )
 
 func main() {
-    authToken := "YOUR_API_KEY"
-    client := transcripts.NewClient(authToken)
-    
-    ctx, cancel := context.WithCancel(context.Background())
-    defer cancel()
-    
-    conn, err := client.Connect(ctx, transcripts.WithQuery(map[string]string{
-        "language_code": "eng",
-    }))
-    if err != nil {
-        fmt.Println("connect error:", err)
-        return
-    }
+	authKey := "YOUR_API_KEY"
+	client := transcripts.NewClient(authKey)
 
-    fmt.Printf("connecting: %+v\n", conn)
-    
-    recognizer := transcripts.NewRecognizer(ctx, conn)
-    
-    // Add event handlers
-    recognizer.Start() // Start the recognizer in a goroutine
-    
-    // Add event handlers after starting
-    go func() {
-        for {
-            select {
-            case <-ctx.Done():
-                return
-            default:
-                // Handle events in a separate goroutine if needed
-            }
-        }
-    }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-    // Send audio data (PCM format, 16kHz sample rate)
-    // Example: recognizer.Send(audioData)
-    
-    // Wait for completion or error
-    if err := <-recognizer.Err(); err != nil {
-        fmt.Printf("recognizer error: %v\n", err)
-    }
+	conn, err := client.Connect(ctx, transcripts.WithQuery(map[string]string{
+		"language_code": "eng",
+		"audio_format":  string(transcripts.AudioFormatPcm_16000),
+	}))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	recognizer := transcripts.NewRecognizer(ctx, conn, func(ctx context.Context, event transcripts.ServerEvent) {
+		switch e := event.(type) {
+		case transcripts.SpeechRecognizingEventArgs:
+			log.Printf("partial: %s", e.Text)
+		case transcripts.SpeechRecognizedEventArgs:
+			log.Printf("final: %s", e.Text)
+		}
+	})
+
+	recognizer.Start()
+	defer recognizer.Stop()
+
+	_ = recognizer.Send([]byte("pcm-bytes"))
+	_ = recognizer.Commit()
+
+	select {
+	case err = <-recognizer.Err():
+		if err != nil {
+			log.Fatal(err)
+		}
+	case <-time.After(3 * time.Second):
+	}
 }
 ```
 
-### Streaming PCM Audio
+See `examples/main.go`.
+
+## ASR File Transcription
 
 ```go
-func StreamPCMWithChannel(ctx context.Context, recognizer *transcripts.Recognizer, pcmFile string, chunkSize int, interval time.Duration) error {
-    file, err := os.Open(pcmFile)
-    if err != nil {
-        return fmt.Errorf("failed to open PCM file: %w", err)
-    }
-    defer func(file *os.File) {
-        if err = file.Close(); err != nil {
-            fmt.Printf("close file error: %+v\n", err)
-        }
-    }(file)
+package main
 
-    buffer := make([]byte, chunkSize)
-    ticker := time.NewTicker(interval)
-    defer ticker.Stop()
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 
-    for {
-        select {
-        case <-ctx.Done():
-            return ctx.Err()
-        case <-ticker.C:
-            var n int
-            if n, err = file.Read(buffer); n > 0 {
-                if sendErr := recognizer.Send(buffer[:n]); sendErr != nil {
-                    return fmt.Errorf("failed to send audio chunk: %w", sendErr)
-                }
-                fmt.Printf("Sent %d bytes\n", n)
-            }
+	"github.com/gouyuwang/go-elevenlabs/transcripts"
+)
 
-            if err == io.EOF {
-                if sendErr := recognizer.Commit(); sendErr != nil {
-                    return fmt.Errorf("failed to commit audio: %w", sendErr)
-                }
-                fmt.Println("Finished sending PCM data")
-                return nil
-            }
+func main() {
+	file, err := os.Open("sample.wav")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
 
-            if err != nil && err != io.EOF {
-                return fmt.Errorf("error reading PCM file: %w", err)
-            }
-        }
-    }
+	client := transcripts.NewClient(os.Getenv("ELEVENLABS_API_KEY"))
+	resp, err := client.Transcribe(context.Background(), transcripts.TranscriptionRequest{
+		ModelID:      "scribe_v1",
+		FileName:     filepath.Base("sample.wav"),
+		File:         file,
+		LanguageCode: "en",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(resp.Text)
 }
 ```
 
-## Audio Requirements
+See `examples/transcribe_file/main.go`.
 
-- **Format**: PCM (uncompressed)
-- **Sample Rates Supported**: 8000Hz, 16000Hz, 22050Hz, 24000Hz, 44100Hz, 48000Hz
-- **Default**: 16000Hz (pcm_16000)
-- **Channels**: Mono (1 channel)
+`TranscriptionRequest` supports common official fields such as `SourceURL`, `Diarize`, `DiarizationThreshold`, `TimestampsGranularity`, `EntityDetection`, `Keyterms`, `AdditionalFormats`, and `WebhookMetadata`.
 
-## Configuration Options
-
-You can configure the connection with various query parameters:
+## TTS Synchronous Synthesis
 
 ```go
-client.Connect(ctx, transcripts.WithQuery(map[string]string{
-    "language_code":           "eng",              // Language code (ISO 639-1/3)
-    "commit_strategy":         "vad",              // Commit strategy: "manual" or "vad"
-    "min_silence_duration_ms": "1000",             // Minimum silence duration in ms
-    "audio_format":            "pcm_16000",        // Audio format
-    "include_timestamps":      "true",             // Include word-level timestamps
-}))
+package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/gouyuwang/go-elevenlabs/tts"
+)
+
+func main() {
+	client := tts.NewClient(os.Getenv("ELEVENLABS_API_KEY"))
+	resp, err := client.Synthesize(context.Background(), tts.SynthesisRequest{
+		VoiceID:      "voice_id",
+		Text:         "Hello from ElevenLabs.",
+		ModelID:      "eleven_turbo_v2_5",
+		OutputFormat: tts.AudioFormatMP344100128,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	_ = os.WriteFile("speech.mp3", resp.Audio, 0o644)
+}
 ```
 
-## Event Types
+See `examples/tts_basic/main.go`.
 
-The SDK supports several event types that can be handled in your event handler:
+`SynthesisRequest` supports common official fields such as `LanguageCode`, `VoiceSettings`, `Seed`, `PreviousText`, `NextText`, `PreviousRequestIDs`, `NextRequestIDs`, `EnableLogging`, and `OptimizeStreamingLatency`.
 
-- `SessionStartEventArgs`: Fired when the session starts
-- `SpeechRecognizingEventArgs`: Fired for partial transcripts
-- `SpeechRecognizedEventArgs`: Fired for committed transcripts
-- `SpeechRecognizedWithTimestampEventArgs`: Fired for transcripts with word-level timestamps
-- `SpeechRecognitionCanceledEventArgs`: Fired when recognition is canceled (with error details)
+Common TTS model constants are available in the `tts` package:
 
-## API Methods
+- `tts.ModelElevenV3`
+- `tts.ModelElevenMultilingualV2`
+- `tts.ModelElevenFlashV25`
+- `tts.ModelElevenTurboV25`
 
-- `NewClient(authKey string) *Client`: Creates a new client with the provided auth key
-- `Client.Connect()`: Establishes a connection to the API
-- `NewRecognizer(ctx context.Context, conn *Conn, handlers ...ServerEventHandler) *Recognizer`: Creates a new recognizer
-- `recognizer.Start()`: Starts the recognizer to listen for events
-- `recognizer.Send(pcm []byte) error`: Sends PCM audio data to the API
-- `recognizer.Commit() error`: Commits the current audio for processing
-- `recognizer.Stop() error`: Stops the recognizer and closes the connection
-- `recognizer.Err() <-chan error`: Returns a channel for receiving errors
+## TTS Models
+
+```go
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/gouyuwang/go-elevenlabs/tts"
+)
+
+func main() {
+	client := tts.NewClient(os.Getenv("ELEVENLABS_API_KEY"))
+	models, err := client.ListModels(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, model := range tts.TextToSpeechModels(models) {
+		log.Printf("%s %s", model.ModelID, model.Name)
+	}
+}
+```
+
+## TTS Streaming Audio Output
+
+```go
+package main
+
+import (
+	"context"
+	"io"
+	"os"
+
+	"github.com/gouyuwang/go-elevenlabs/tts"
+)
+
+func main() {
+	client := tts.NewClient(os.Getenv("ELEVENLABS_API_KEY"))
+	resp, err := client.Stream(context.Background(), tts.SynthesisRequest{
+		VoiceID: "voice_id",
+		Text:    "This response is streamed as audio.",
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Audio.Close()
+
+	file, err := os.Create("speech.mp3")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	_, _ = io.Copy(file, resp.Audio)
+}
+```
+
+See `examples/tts_stream/main.go`.
+
+## Audio Formats
+
+### Realtime ASR input
+
+- `pcm_8000`
+- `pcm_16000`
+- `pcm_22050`
+- `pcm_24000`
+- `pcm_44100`
+- `pcm_48000`
+- `ulaw_8000`
+
+### TTS output
+
+- `mp3_44100_128`
 
 ## Error Handling
 
-The SDK handles various error types:
+- Realtime ASR continues to use the existing WebSocket error flow
+- HTTP ASR and TTS return typed API errors with HTTP status, request ID, message, and raw body when available
 
-- `QuotaExceededError`: When API quota is exceeded
-- `RateLimitedError`: When rate limits are hit
-- `AuthError`: When authentication fails
-- `InputError`: When input format is invalid
-- `TranscriberError`: When transcription fails
+## Examples
 
-## Dependencies
-
-- `github.com/coder/websocket`: WebSocket implementation
-- `encoding/json`: JSON marshaling/unmarshaling
-- `encoding/base64`: Audio data encoding
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- `examples/main.go`
+- `examples/transcribe_file/main.go`
+- `examples/tts_basic/main.go`
+- `examples/tts_stream/main.go`
