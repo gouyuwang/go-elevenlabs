@@ -104,7 +104,7 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 		ApplyTextNormalization: TextNormalizationOn,
 		Seed:                   &seed,
 		VoiceSettings: &VoiceSettings{
-			Stability: &stability,
+			Stability: stability,
 		},
 	})
 	if err != nil {
@@ -141,7 +141,7 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 	if got, want := messages[0].ModelID, ModelElevenTurboV25; got != want {
 		t.Fatalf("init model_id = %s, want %s", got, want)
 	}
-	if messages[0].VoiceSettings == nil || messages[0].VoiceSettings.Stability == nil {
+	if messages[0].VoiceSettings == nil {
 		t.Fatal("missing voice settings in init message")
 	}
 	if got, want := messages[1].Text, "hello world"; got != want {

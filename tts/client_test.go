@@ -82,10 +82,6 @@ func TestClientSynthesizeReturnsAudioAndMetadata(t *testing.T) {
 	client := NewClientWithConfig(cfg)
 	enableLogging := false
 	optimizeStreamingLatency := 3
-	stability := 0.3
-	similarityBoost := 0.8
-	style := 0.1
-	useSpeakerBoost := true
 	seed := 7
 
 	resp, err := client.Synthesize(context.Background(), SynthesisRequest{
@@ -100,10 +96,11 @@ func TestClientSynthesizeReturnsAudioAndMetadata(t *testing.T) {
 		PreviousText:             "previous",
 		NextText:                 "next",
 		VoiceSettings: &VoiceSettings{
-			Stability:       &stability,
-			SimilarityBoost: &similarityBoost,
-			Style:           &style,
-			UseSpeakerBoost: &useSpeakerBoost,
+			Stability:       0.3,
+			SimilarityBoost: 0.8,
+			Style:           0.1,
+			UseSpeakerBoost: true,
+			Speed:           0.8,
 		},
 	})
 	if err != nil {
