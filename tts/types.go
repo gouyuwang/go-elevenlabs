@@ -49,6 +49,7 @@ type VoiceSettings struct {
 	SimilarityBoost *float64 `json:"similarity_boost,omitempty"`
 	Style           *float64 `json:"style,omitempty"`
 	UseSpeakerBoost *bool    `json:"use_speaker_boost,omitempty"`
+	Speed           *float64 `json:"speed,omitempty"`
 }
 
 type SynthesisRequest struct {
