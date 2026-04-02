@@ -15,25 +15,29 @@ import (
 )
 
 type StreamInputRequest struct {
-	VoiceID                  string
-	ModelID                  string
-	OutputFormat             AudioFormat
-	LanguageCode             string
-	VoiceSettings            *VoiceSettings
-	EnableLogging            *bool
-	OptimizeStreamingLatency *int
-	EnableSSMLParsing        *bool
-	InactivityTimeout        *int
-	SyncAlignment            *bool
-	AutoMode                 *bool
-	ApplyTextNormalization   TextNormalizationMode
-	Seed                     *int
+	VoiceID                         string
+	ModelID                         string
+	OutputFormat                    AudioFormat
+	LanguageCode                    string
+	VoiceSettings                   *VoiceSettings
+	EnableLogging                   *bool
+	OptimizeStreamingLatency        *int
+	EnableSSMLParsing               *bool
+	InactivityTimeout               *int
+	SyncAlignment                   *bool
+	AutoMode                        *bool
+	ApplyTextNormalization          TextNormalizationMode
+	Seed                            *int
+	GenerationConfig                *GenerationConfig
+	PronunciationDictionaryLocators []PronunciationDictionaryLocator
 }
 
 type StreamTextMessage struct {
-	Text                 string `json:"text"`
-	TryTriggerGeneration *bool  `json:"try_trigger_generation,omitempty"`
-	Flush                *bool  `json:"flush,omitempty"`
+	Text                            string                           `json:"text"`
+	TryTriggerGeneration            *bool                            `json:"try_trigger_generation,omitempty"`
+	Flush                           *bool                            `json:"flush,omitempty"`
+	GenerationConfig                *GenerationConfig                `json:"generation_config,omitempty"`
+	PronunciationDictionaryLocators []PronunciationDictionaryLocator `json:"pronunciation_dictionary_locators,omitempty"`
 }
 
 type StreamEvent interface{}
@@ -93,7 +97,9 @@ func (c *Client) ConnectRealtime(ctx context.Context, req StreamInputRequest, op
 		return nil, err
 	}
 
-	wsConn, err := connectOpts.dialer.Dial(ctx, uri, http.Header{})
+	headers := http.Header{}
+	headers.Set("xi-api-key", c.config.authKey)
+	wsConn, err := connectOpts.dialer.Dial(ctx, uri, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -104,17 +110,21 @@ func (c *Client) ConnectRealtime(ctx context.Context, req StreamInputRequest, op
 	}
 
 	initMessage := struct {
-		Text          string         `json:"text"`
-		XIAPIKey      string         `json:"xi_api_key"`
-		ModelID       string         `json:"model_id,omitempty"`
-		LanguageCode  string         `json:"language_code,omitempty"`
-		VoiceSettings *VoiceSettings `json:"voice_settings,omitempty"`
+		Text                            string                           `json:"text"`
+		XIAPIKey                        string                           `json:"xi_api_key"`
+		ModelID                         string                           `json:"model_id,omitempty"`
+		LanguageCode                    string                           `json:"language_code,omitempty"`
+		VoiceSettings                   *VoiceSettings                   `json:"voice_settings,omitempty"`
+		GenerationConfig                *GenerationConfig                `json:"generation_config,omitempty"`
+		PronunciationDictionaryLocators []PronunciationDictionaryLocator `json:"pronunciation_dictionary_locators,omitempty"`
 	}{
-		Text:          " ",
-		XIAPIKey:      c.config.authKey,
-		ModelID:       req.ModelID,
-		LanguageCode:  req.LanguageCode,
-		VoiceSettings: req.VoiceSettings,
+		Text:                            " ",
+		XIAPIKey:                        c.config.authKey,
+		ModelID:                         req.ModelID,
+		LanguageCode:                    req.LanguageCode,
+		VoiceSettings:                   req.VoiceSettings,
+		GenerationConfig:                req.GenerationConfig,
+		PronunciationDictionaryLocators: req.PronunciationDictionaryLocators,
 	}
 	if err = conn.Send(ctx, initMessage); err != nil {
 		_ = conn.Close()

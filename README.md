@@ -163,7 +163,7 @@ func main() {
 
 See `examples/tts_basic/main.go`.
 
-`SynthesisRequest` supports common official fields such as `LanguageCode`, `VoiceSettings`, `Seed`, `PreviousText`, `NextText`, `PreviousRequestIDs`, `NextRequestIDs`, `EnableLogging`, and `OptimizeStreamingLatency`.
+`SynthesisRequest` supports common official fields such as `LanguageCode`, `VoiceSettings`, `GenerationConfig`, `PronunciationDictionaryLocators`, `Seed`, `PreviousText`, `NextText`, `PreviousRequestIDs`, `NextRequestIDs`, `EnableLogging`, and `OptimizeStreamingLatency`.
 
 Common TTS model constants are available in the `tts` package:
 
@@ -203,6 +203,8 @@ func main() {
 This mode is closer to the Azure push-style synthesizer: connect once, send incremental text chunks, and handle audio chunks as realtime events.
 
 `StreamInputRequest` supports common `stream-input` query parameters such as `OutputFormat`, `EnableSSMLParsing`, `InactivityTimeout`, `SyncAlignment`, `AutoMode`, `ApplyTextNormalization`, `Seed`, `EnableLogging`, and `OptimizeStreamingLatency`.
+
+The realtime websocket initialization message body also supports fields such as `VoiceSettings`, `GenerationConfig`, and `PronunciationDictionaryLocators`. Per-message bodies support text chunks plus optional `GenerationConfig`, `Flush`, and `TryTriggerGeneration`.
 
 ```go
 package main

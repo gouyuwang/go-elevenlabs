@@ -52,20 +52,31 @@ type VoiceSettings struct {
 	Speed           float64 `json:"speed,omitempty"`
 }
 
+type GenerationConfig struct {
+	ChunkLengthSchedule []int `json:"chunk_length_schedule,omitempty"`
+}
+
+type PronunciationDictionaryLocator struct {
+	PronunciationDictionaryID string `json:"pronunciation_dictionary_id,omitempty"`
+	VersionID                 string `json:"version_id,omitempty"`
+}
+
 type SynthesisRequest struct {
-	VoiceID                  string         `json:"-"`
-	Text                     string         `json:"text"`
-	ModelID                  string         `json:"model_id,omitempty"`
-	OutputFormat             AudioFormat    `json:"-"`
-	LanguageCode             string         `json:"language_code,omitempty"`
-	VoiceSettings            *VoiceSettings `json:"voice_settings,omitempty"`
-	EnableLogging            *bool          `json:"-"`
-	OptimizeStreamingLatency *int           `json:"-"`
-	Seed                     *int           `json:"seed,omitempty"`
-	PreviousText             string         `json:"previous_text,omitempty"`
-	NextText                 string         `json:"next_text,omitempty"`
-	PreviousRequestIDs       []string       `json:"previous_request_ids,omitempty"`
-	NextRequestIDs           []string       `json:"next_request_ids,omitempty"`
+	VoiceID                         string                           `json:"-"`
+	Text                            string                           `json:"text"`
+	ModelID                         string                           `json:"model_id,omitempty"`
+	OutputFormat                    AudioFormat                      `json:"-"`
+	LanguageCode                    string                           `json:"language_code,omitempty"`
+	VoiceSettings                   *VoiceSettings                   `json:"voice_settings,omitempty"`
+	GenerationConfig                *GenerationConfig                `json:"generation_config,omitempty"`
+	PronunciationDictionaryLocators []PronunciationDictionaryLocator `json:"pronunciation_dictionary_locators,omitempty"`
+	EnableLogging                   *bool                            `json:"-"`
+	OptimizeStreamingLatency        *int                             `json:"-"`
+	Seed                            *int                             `json:"seed,omitempty"`
+	PreviousText                    string                           `json:"previous_text,omitempty"`
+	NextText                        string                           `json:"next_text,omitempty"`
+	PreviousRequestIDs              []string                         `json:"previous_request_ids,omitempty"`
+	NextRequestIDs                  []string                         `json:"next_request_ids,omitempty"`
 }
 
 type SynthesisResponse struct {

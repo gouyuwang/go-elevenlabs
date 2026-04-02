@@ -62,6 +62,20 @@ func TestClientSynthesizeReturnsAudioAndMetadata(t *testing.T) {
 		if got, want := payload["next_text"], "next"; got != want {
 			t.Fatalf("next_text = %v, want %v", got, want)
 		}
+		generationConfig, ok := payload["generation_config"].(map[string]any)
+		if !ok {
+			t.Fatalf("generation_config type = %T, want map[string]any", payload["generation_config"])
+		}
+		if got, want := len(generationConfig["chunk_length_schedule"].([]any)), 3; got != want {
+			t.Fatalf("len(generation_config.chunk_length_schedule) = %d, want %d", got, want)
+		}
+		locators, ok := payload["pronunciation_dictionary_locators"].([]any)
+		if !ok {
+			t.Fatalf("pronunciation_dictionary_locators type = %T, want []any", payload["pronunciation_dictionary_locators"])
+		}
+		if got, want := len(locators), 1; got != want {
+			t.Fatalf("len(pronunciation_dictionary_locators) = %d, want %d", got, want)
+		}
 		voiceSettings, ok := payload["voice_settings"].(map[string]any)
 		if !ok {
 			t.Fatalf("voice_settings type = %T, want map[string]any", payload["voice_settings"])
@@ -95,6 +109,15 @@ func TestClientSynthesizeReturnsAudioAndMetadata(t *testing.T) {
 		Seed:                     &seed,
 		PreviousText:             "previous",
 		NextText:                 "next",
+		GenerationConfig: &GenerationConfig{
+			ChunkLengthSchedule: []int{120, 160, 250},
+		},
+		PronunciationDictionaryLocators: []PronunciationDictionaryLocator{
+			{
+				PronunciationDictionaryID: "dict_123",
+				VersionID:                 "ver_456",
+			},
+		},
 		VoiceSettings: &VoiceSettings{
 			Stability:       0.3,
 			SimilarityBoost: 0.8,
@@ -130,6 +153,17 @@ func TestClientStreamAudioReturnsReadableAudio(t *testing.T) {
 		if got, want := r.URL.Query().Get("output_format"), "pcm_44100"; got != want {
 			t.Fatalf("output_format = %s, want %s", got, want)
 		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		var payload map[string]any
+		if err = json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("unmarshal request body: %v", err)
+		}
+		if _, ok := payload["generation_config"].(map[string]any); !ok {
+			t.Fatalf("generation_config type = %T, want map[string]any", payload["generation_config"])
+		}
 		w.Header().Set("Content-Type", "audio/mpeg")
 		w.Header().Set("request-id", "req_stream")
 		_, _ = w.Write([]byte("stream-bytes"))
@@ -144,6 +178,9 @@ func TestClientStreamAudioReturnsReadableAudio(t *testing.T) {
 		VoiceID:      "voice_123",
 		Text:         "hello stream",
 		OutputFormat: AudioFormatPCM44100,
+		GenerationConfig: &GenerationConfig{
+			ChunkLengthSchedule: []int{50, 120},
+		},
 	})
 	if err != nil {
 		t.Fatalf("StreamAudio() error = %v", err)

@@ -16,10 +16,12 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 	t.Parallel()
 
 	type receivedMessage struct {
-		Text          string         `json:"text"`
-		XIAPIKey      string         `json:"xi_api_key,omitempty"`
-		ModelID       string         `json:"model_id,omitempty"`
-		VoiceSettings *VoiceSettings `json:"voice_settings,omitempty"`
+		Text                            string                           `json:"text"`
+		XIAPIKey                        string                           `json:"xi_api_key,omitempty"`
+		ModelID                         string                           `json:"model_id,omitempty"`
+		VoiceSettings                   *VoiceSettings                   `json:"voice_settings,omitempty"`
+		GenerationConfig                *GenerationConfig                `json:"generation_config,omitempty"`
+		PronunciationDictionaryLocators []PronunciationDictionaryLocator `json:"pronunciation_dictionary_locators,omitempty"`
 	}
 
 	var (
@@ -103,6 +105,15 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 		AutoMode:               &autoMode,
 		ApplyTextNormalization: TextNormalizationOn,
 		Seed:                   &seed,
+		GenerationConfig: &GenerationConfig{
+			ChunkLengthSchedule: []int{120, 160, 250, 290},
+		},
+		PronunciationDictionaryLocators: []PronunciationDictionaryLocator{
+			{
+				PronunciationDictionaryID: "dict_123",
+				VersionID:                 "ver_456",
+			},
+		},
 		VoiceSettings: &VoiceSettings{
 			Stability: stability,
 		},
@@ -143,6 +154,15 @@ func TestClientConnectRealtimeAndReceiveAudio(t *testing.T) {
 	}
 	if messages[0].VoiceSettings == nil {
 		t.Fatal("missing voice settings in init message")
+	}
+	if messages[0].GenerationConfig == nil {
+		t.Fatal("missing generation_config in init message")
+	}
+	if got, want := len(messages[0].GenerationConfig.ChunkLengthSchedule), 4; got != want {
+		t.Fatalf("len(chunk_length_schedule) = %d, want %d", got, want)
+	}
+	if got, want := len(messages[0].PronunciationDictionaryLocators), 1; got != want {
+		t.Fatalf("len(pronunciation_dictionary_locators) = %d, want %d", got, want)
 	}
 	if got, want := messages[1].Text, "hello world"; got != want {
 		t.Fatalf("send text = %s, want %s", got, want)
@@ -248,8 +268,9 @@ func TestRealtimeSynthesizerHelperMethods(t *testing.T) {
 	t.Parallel()
 
 	type receivedMessage struct {
-		Text  string `json:"text"`
-		Flush *bool  `json:"flush,omitempty"`
+		Text             string            `json:"text"`
+		Flush            *bool             `json:"flush,omitempty"`
+		GenerationConfig *GenerationConfig `json:"generation_config,omitempty"`
 	}
 
 	var (
@@ -265,7 +286,7 @@ func TestRealtimeSynthesizerHelperMethods(t *testing.T) {
 		defer conn.Close(websocket.StatusNormalClosure, "")
 
 		ctx := r.Context()
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 6; i++ {
 			_, data, err := conn.Read(ctx)
 			if err != nil {
 				t.Fatalf("read message: %v", err)
@@ -304,6 +325,14 @@ func TestRealtimeSynthesizerHelperMethods(t *testing.T) {
 	if err = streamer.SendText("second"); err != nil {
 		t.Fatalf("SendText(second) error = %v", err)
 	}
+	if err = streamer.Send(StreamTextMessage{
+		Text: "third",
+		GenerationConfig: &GenerationConfig{
+			ChunkLengthSchedule: []int{50, 120},
+		},
+	}); err != nil {
+		t.Fatalf("Send(third with generation_config) error = %v", err)
+	}
 	if err = streamer.Flush(); err != nil {
 		t.Fatalf("Flush() error = %v", err)
 	}
@@ -322,7 +351,7 @@ func TestRealtimeSynthesizerHelperMethods(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if got, want := len(messages), 5; got != want {
+	if got, want := len(messages), 6; got != want {
 		t.Fatalf("len(messages) = %d, want %d", got, want)
 	}
 	if got, want := messages[1].Text, "first"; got != want {
@@ -331,16 +360,22 @@ func TestRealtimeSynthesizerHelperMethods(t *testing.T) {
 	if got, want := messages[2].Text, "second"; got != want {
 		t.Fatalf("messages[2].Text = %s, want %s", got, want)
 	}
-	if messages[3].Flush == nil || !*messages[3].Flush {
-		t.Fatal("messages[3] should be flush")
+	if messages[3].GenerationConfig == nil {
+		t.Fatal("messages[3] should include generation_config")
 	}
-	if got, want := messages[3].Text, ""; got != want {
+	if got, want := messages[3].Text, "third"; got != want {
 		t.Fatalf("messages[3].Text = %q, want %q", got, want)
 	}
 	if messages[4].Flush == nil || !*messages[4].Flush {
-		t.Fatal("messages[4] should be close-input flush")
+		t.Fatal("messages[4] should be flush")
 	}
 	if got, want := messages[4].Text, ""; got != want {
 		t.Fatalf("messages[4].Text = %q, want %q", got, want)
+	}
+	if messages[5].Flush == nil || !*messages[5].Flush {
+		t.Fatal("messages[5] should be close-input flush")
+	}
+	if got, want := messages[5].Text, ""; got != want {
+		t.Fatalf("messages[5].Text = %q, want %q", got, want)
 	}
 }
