@@ -7,8 +7,9 @@ import (
 
 // Conn is a connection to the OpenAI Realtime API.
 type Conn struct {
-	logger Logger
-	conn   WebSocketConn
+	logger     Logger
+	conn       WebSocketConn
+	sampleRate int64
 }
 
 // Close closes the connection.

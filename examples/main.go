@@ -24,12 +24,17 @@ func main() {
 		return
 	}
 	client := transcripts.NewClient(authKey)
-	conn, err := client.Connect(ctx, transcripts.WithQuery(map[string]string{
-		"language_code":              "eng", //iso 639-1 or iso 639-3
-		"vad_silence_threshold_secs": "1.5",
-		"vad_threshold":              "0.5",
-		"min_speech_duration_ms":     "250",
-		"min_silence_duration_ms":    "2200",
+	vadSilenceThresholdSecs := 1.5
+	vadThreshold := 0.5
+	minSpeechDurationMs := 250
+	minSilenceDurationMs := 2200
+	conn, err := client.Connect(ctx, transcripts.WithRealtimeConfig(transcripts.RealtimeConfig{
+		LanguageCode:            "eng", // iso 639-1 or iso 639-3
+		AudioFormat:             transcripts.AudioFormatPcm_16000,
+		VadSilenceThresholdSecs: &vadSilenceThresholdSecs,
+		VadThreshold:            &vadThreshold,
+		MinSpeechDurationMs:     &minSpeechDurationMs,
+		MinSilenceDurationMs:    &minSilenceDurationMs,
 	}), transcripts.WithLogger(logger))
 	if err != nil {
 		logger.Errorf("connect error: %+v\n", err)

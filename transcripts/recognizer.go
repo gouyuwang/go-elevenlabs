@@ -46,13 +46,16 @@ func (r *Recognizer) Start() {
 
 func (r *Recognizer) Send(pcm []byte) error {
 	return r.conn.SendMessage(r.ctx, InputAudioChunkEvent{
-		Audio: base64.StdEncoding.EncodeToString(pcm),
+		Audio:      base64.StdEncoding.EncodeToString(pcm),
+		Commit:     false,
+		SampleRate: r.conn.sampleRate,
 	})
 }
 
 func (r *Recognizer) Commit() error {
 	return r.conn.SendMessage(r.ctx, InputAudioChunkEvent{
-		Commit: true,
+		Commit:     true,
+		SampleRate: r.conn.sampleRate,
 	})
 }
 

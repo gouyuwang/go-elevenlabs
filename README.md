@@ -58,9 +58,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	conn, err := client.Connect(ctx, transcripts.WithQuery(map[string]string{
-		"language_code": "eng",
-		"audio_format":  string(transcripts.AudioFormatPcm_16000),
+	conn, err := client.Connect(ctx, transcripts.WithRealtimeConfig(transcripts.RealtimeConfig{
+		LanguageCode:   "eng",
+		AudioFormat:    transcripts.AudioFormatPcm_16000,
+		CommitStrategy: transcripts.CommitStrategyManual,
 	}))
 	if err != nil {
 		log.Fatal(err)
@@ -92,6 +93,8 @@ func main() {
 ```
 
 See `examples/main.go`.
+
+For new realtime integrations, prefer `transcripts.WithRealtimeConfig(...)` over ad-hoc query maps. It provides typed support for the current documented handshake parameters such as `Token`, `IncludeTimestamps`, `IncludeLanguageDetection`, `AudioFormat`, `LanguageCode`, `CommitStrategy`, `Keyterms`, `NoVerbatim`, `VadSilenceThresholdSecs`, `VadThreshold`, `MinSpeechDurationMs`, `MinSilenceDurationMs`, and `EnableLogging`.
 
 ## ASR File Transcription
 

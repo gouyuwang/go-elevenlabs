@@ -28,7 +28,7 @@ type InputAudioChunkEvent struct {
 	// Required. Sample rate of the audio in Hz.
 	SampleRate int64 `json:"sample_rate"`
 	// Optional. Send text context to the model. Can only be sent alongside the first audio chunk. If sent in a subsequent chunk, an error will be returned.
-	PreviousTxt string `json:"previous_txt,omitempty"`
+	PreviousText string `json:"previous_text,omitempty"`
 }
 
 func (m InputAudioChunkEvent) ClientEventType() ClientEventType {
@@ -39,10 +39,12 @@ func (m InputAudioChunkEvent) MarshalJSON() ([]byte, error) {
 	type inputAudioChunkEvent InputAudioChunkEvent
 	v := struct {
 		*inputAudioChunkEvent
-		Type ClientEventType `json:"message_type"`
+		Type         ClientEventType `json:"message_type"`
+		PreviousText string          `json:"previous_text,omitempty"`
 	}{
 		inputAudioChunkEvent: (*inputAudioChunkEvent)(&m),
 		Type:                 m.ClientEventType(),
+		PreviousText:         m.PreviousText,
 	}
 	return json.Marshal(v)
 }

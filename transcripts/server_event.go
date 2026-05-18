@@ -100,6 +100,8 @@ type SessionStartConfig struct {
 	LanguageCode string `json:"language_code,omitempty"`
 	// Optional. Strategy for committing transcriptions.
 	CommitStrategy CommitStrategy `json:"commit_strategy,omitempty"`
+	// Optional. Granularity for timestamps in the committed transcript.
+	TimestampsGranularity string `json:"timestamps_granularity,omitempty"`
 	// Optional. Silence threshold in seconds.
 	VadSilenceThresholdSecs float64 `json:"vad_silence_threshold_secs,omitempty"`
 	// Optional. Threshold for voice activity detection.
@@ -108,6 +110,8 @@ type SessionStartConfig struct {
 	MinSpeechDurationMs int `json:"min_speech_duration_ms,omitempty"`
 	// Optional. Minimum duration of silence in milliseconds.
 	MinSilenceDurationMs int `json:"min_silence_duration_ms,omitempty"`
+	// Optional. Number of tokens to recompute around each commit boundary.
+	MaxTokensToRecompute int `json:"max_tokens_to_recompute,omitempty"`
 	// Optional. ID of the model to use for transcription.
 	ModelID string `json:"model_id,omitempty"`
 	// Optional. When enable_logging is set to false zero retention mode will be used for the request.
@@ -117,6 +121,34 @@ type SessionStartConfig struct {
 	IncludeTimestamps bool `json:"include_timestamps,omitempty"`
 	// Optional. Whether the session will include language detection in the committed transcript.
 	IncludeLanguageDetection bool `json:"include_language_detection,omitempty"`
+	// Optional. Keyterms the model is biased towards.
+	Keyterms []string `json:"keyterms,omitempty"`
+	// Optional. Whether filler words and disfluencies are removed from the transcript.
+	NoVerbatim bool `json:"no_verbatim,omitempty"`
+}
+
+func (c *SessionStartConfig) UnmarshalJSON(data []byte) error {
+	type sessionStartConfig SessionStartConfig
+	var raw struct {
+		sessionStartConfig
+		VADCommitStrategy *bool `json:"vad_commit_strategy,omitempty"`
+		DisableLogging    *bool `json:"disable_logging,omitempty"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*c = SessionStartConfig(raw.sessionStartConfig)
+	if raw.VADCommitStrategy != nil {
+		if *raw.VADCommitStrategy {
+			c.CommitStrategy = CommitStrategyVAD
+		} else if c.CommitStrategy == "" {
+			c.CommitStrategy = CommitStrategyManual
+		}
+	}
+	if raw.DisableLogging != nil {
+		c.EnableLogging = !*raw.DisableLogging
+	}
+	return nil
 }
 
 type SessionStartEventArgs struct {
@@ -146,11 +178,17 @@ type SpeechRecognizedWithTimestampEventArgs struct {
 	// Detected or specified language code.
 	Language string `json:"language_code,omitempty"`
 	// Word-level information with timestamps.
-	Words []struct {
-		Text  string  `json:"text"`
-		Start float64 `json:"start"`
-		End   float64 `json:"end"`
-	} `json:"words"`
+	Words []RealtimeTranscriptWord `json:"words"`
+}
+
+type RealtimeTranscriptWord struct {
+	Text       string   `json:"text,omitempty"`
+	Start      float64  `json:"start,omitempty"`
+	End        float64  `json:"end,omitempty"`
+	Type       string   `json:"type,omitempty"`
+	SpeakerID  string   `json:"speaker_id,omitempty"`
+	LogProb    float64  `json:"logprob,omitempty"`
+	Characters []string `json:"characters,omitempty"`
 }
 
 type SpeechRecognitionCanceledEventArgs struct {
